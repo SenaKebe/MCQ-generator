@@ -1,37 +1,23 @@
-import pandas as pd
-import PyPDF2
-import streamlit as st
+import re
+from PyPDF2 import PdfReader
+try:
+    import docx
+except ImportError:
+    docx = None
 
-import pdfplumber
+def read_pdf(file) -> str:
+    return "\n".join([page.extract_text() or "" for page in PdfReader(file).pages])
 
-def read_file(uploaded_file):
-    if uploaded_file.type == "text/plain":
-        return uploaded_file.read().decode("utf-8")
-    elif uploaded_file.type == "application/pdf":
-        text = ""
-        with pdfplumber.open(uploaded_file) as pdf:
-            for page in pdf.pages:
-                text += page.extract_text() or ""
-        return text
-    else:
-        st.error("Unsupported file type! Please upload a TXT or PDF file.")
-        return None
+def read_txt(file) -> str:
+    return file.read().decode("utf-8", errors="ignore")
 
+def read_docx(file) -> str:
+    if not docx:
+        return ""
+    return "\n".join(p.text for p in docx.Document(file).paragraphs)
 
-def get_table_data(quiz_data: dict):
-    """
-    Converts a quiz dictionary into a list of dicts suitable for pd.DataFrame.
-    Each dict contains Question, Options A-D, and Answer.
-    """
-    table_data = []
-    for q in quiz_data.get("questions", []):
-        options = q.get("options", [])
-        table_data.append({
-            "Question": q.get("question", ""),
-            "Option A": options[0] if len(options) > 0 else "",
-            "Option B": options[1] if len(options) > 1 else "",
-            "Option C": options[2] if len(options) > 2 else "",
-            "Option D": options[3] if len(options) > 3 else "",
-            "Answer": q.get("answer", "")
-        })
-    return table_data
+def clean_text(s: str) -> str:
+    return re.sub(r"\s+", " ", s).strip()
+
+def trim_text_tokens(s: str, max_chars: int = 24000) -> str:
+    return s if len(s) <= max_chars else s[:max_chars]
